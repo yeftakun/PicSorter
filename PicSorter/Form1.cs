@@ -2,34 +2,61 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.Json;
 using System.Windows.Forms;
 
 namespace PicSorter
 {
+    // ============================
+    // MODEL STATE JSON
+    // ============================
+    public class DestinationFolderInfo
+    {
+        public string Shortcut { get; set; } = "";
+        public string FolderPath { get; set; } = "";
+    }
+
+    public class SortItemState
+    {
+        public string SourcePath { get; set; } = "";
+        public bool IsVideo { get; set; }
+        public bool Sorted { get; set; } = false;           // true = sudah diputuskan (ada tujuan)
+        public string? DestFolderPath { get; set; }         // null jika belum di-assign
+        public string? LastAction { get; set; }             // "Assign", "Skip", "UndoAssign", dll (informasi tambahan)
+        public bool Committed { get; set; } = false;        // true = sudah diproses saat Save (Copy/Move)
+    }
+
+    public class SortState
+    {
+        public string SourceFolder { get; set; } = "";
+        public string Mode { get; set; } = "Copy";          // "Copy" / "Move"
+        public List<DestinationFolderInfo> Destinations { get; set; } = new();
+        public List<SortItemState> Items { get; set; } = new();
+    }
+
+    // ============================
+    // FORM
+    // ============================
     public partial class Form1 : Form
     {
-        // ============================
-        // FIELD UNTUK LOGIC
-        // ============================
-        private List<string> _sourceFiles = new List<string>();
+        // STATE DALAM MEMORI
+        private SortState? _state;
+        private string? _stateFilePath;
+
+        private List<SortItemState> _items = new List<SortItemState>();
         private int _currentIndex = -1;
         private Dictionary<Keys, string> _destinationMap = new Dictionary<Keys, string>();
         private bool _isSorting = false;
-        private bool _isMoveOperation = false;
         private Image? _currentImage;
 
-        // Log & history
-        private string? _logFilePath;
-        private List<SortActionRecord> _history = new List<SortActionRecord>();
-
-        // Mencatat aksi per file, untuk Undo & log
+        // Riwayat untuk Undo (hanya 1 langkah ke belakang)
         private class SortActionRecord
         {
             public int Index { get; set; }
-            public string SourceFile { get; set; } = "";
-            public string Action { get; set; } = "";   // "Copy", "Move", "Skip"
-            public string? DestFile { get; set; }
+            public string Action { get; set; } = "";   // "Assign", "Skip"
         }
+
+        private List<SortActionRecord> _history = new List<SortActionRecord>();
 
         public Form1()
         {
@@ -67,7 +94,7 @@ namespace PicSorter
         }
 
         // ============================
-        // ADD DESTINATION FOLDER
+        // ADD / CLEAR DESTINATION FOLDER
         // ============================
         private void btnAddDestination_Click(object sender, EventArgs e)
         {
@@ -91,88 +118,144 @@ namespace PicSorter
             }
         }
 
-        // ============================
-        // CLEAR DESTINATION FOLDERS
-        // ============================
         private void btnClearDestination_Click(object sender, EventArgs e)
         {
             dgvDestinations.Rows.Clear();
         }
 
         // ============================
-        // START SORTING BARU (from scratch)
+        // START SORTING BARU (STATE BARU)
         // ============================
         private void btnStartSorting_Click(object sender, EventArgs e)
         {
             if (!ValidateSourceAndDest())
                 return;
 
-            LoadSourceFiles();
-            if (_sourceFiles.Count == 0)
+            string source = txtSourceFolder.Text;
+            _stateFilePath = Path.Combine(source, "sorting_state.json");
+
+            // Scan semua file (gambar + video)
+            var imageExt = new[] { ".jpg", ".jpeg", ".png", ".bmp", ".gif", ".jfif" };
+            var videoExt = new[] { ".mp4", ".mov", ".avi", ".mkv", ".wmv" };
+
+            var allFiles = Directory
+                .GetFiles(source)
+                .Where(f =>
+                {
+                    string ext = Path.GetExtension(f).ToLower();
+                    return imageExt.Contains(ext) || videoExt.Contains(ext);
+                })
+                .OrderBy(f => f)
+                .ToList();
+
+            if (allFiles.Count == 0)
             {
-                MessageBox.Show("Tidak ada file gambar yang ditemukan di folder sumber.");
+                MessageBox.Show("Tidak ada file gambar/video yang ditemukan di folder sumber.");
                 return;
             }
 
-            BuildDestinationMap();
-            PrepareNewSessionLog();
+            // Bangun destinasi dari UI
+            var destinations = BuildDestinationList();
+            if (destinations.Count == 0)
+            {
+                MessageBox.Show("Tambahkan minimal satu folder tujuan.");
+                return;
+            }
 
-            _isMoveOperation = (cmbMode.SelectedItem?.ToString() == "Move");
-            _isSorting = true;
-            _currentIndex = 0;
+            // Buat state baru
+            _state = new SortState
+            {
+                SourceFolder = source,
+                Mode = cmbMode.SelectedItem?.ToString() ?? "Copy",
+                Destinations = destinations,
+                Items = allFiles.Select(path => new SortItemState
+                {
+                    SourcePath = path,
+                    IsVideo = videoExt.Contains(Path.GetExtension(path).ToLower()),
+                    Sorted = false,
+                    DestFolderPath = null,
+                    LastAction = null,
+                    Committed = false
+                }).ToList()
+            };
+
+            _items = _state.Items;
             _history.Clear();
+            _isSorting = true;
+
+            BuildDestinationMap(); // dari UI
+            SaveStateToJson();
 
             progressBar1.Minimum = 0;
-            progressBar1.Maximum = _sourceFiles.Count;
+            progressBar1.Maximum = _items.Count;
             progressBar1.Value = 0;
 
-            lblStatus.Text = "Status: Sorting in progress...";
-            ShowCurrentFile();
+            lblStatus.Text = "Status: Sorting in progress (state baru)...";
+
+            // Mulai dari item pertama yang belum di-sort
+            MoveToNextPendingFrom(-1);
         }
 
         // ============================
-        // CONTINUE FROM LOG
+        // CONTINUE FROM STATE (JSON)
         // ============================
         private void btnContinueFromLog_Click(object sender, EventArgs e)
         {
             if (!ValidateSourceAndDest())
                 return;
 
-            LoadSourceFiles();
-            if (_sourceFiles.Count == 0)
+            string source = txtSourceFolder.Text;
+            _stateFilePath = Path.Combine(source, "sorting_state.json");
+
+            if (!File.Exists(_stateFilePath))
             {
-                MessageBox.Show("Tidak ada file gambar yang ditemukan di folder sumber.");
+                MessageBox.Show("File state (sorting_state.json) tidak ditemukan di folder sumber.\nSilakan mulai dengan 'Start Sorting' terlebih dahulu.");
                 return;
             }
+
+            LoadStateFromJson();
+
+            if (_state == null || _state.Items == null || _state.Items.Count == 0)
+            {
+                MessageBox.Show("State kosong atau tidak valid.");
+                return;
+            }
+
+            // Jika SourceFolder di state berbeda dengan folder saat ini, beri peringatan ringan saja
+            if (!string.Equals(_state.SourceFolder, source, StringComparison.OrdinalIgnoreCase))
+            {
+                var result = MessageBox.Show(
+                    "Folder sumber di state berbeda dengan folder yang dipilih saat ini.\nTetap lanjut dengan state yang ada?",
+                    "Peringatan",
+                    MessageBoxButtons.YesNo,
+                    MessageBoxIcon.Warning);
+
+                if (result == DialogResult.No) return;
+            }
+
+            // Sinkronkan mode dan destinasi dengan UI saat ini
+            _state.Mode = cmbMode.SelectedItem?.ToString() ?? "Copy";
+            _state.Destinations = BuildDestinationList();
+            _items = _state.Items;
 
             BuildDestinationMap();
-            PrepareNewSessionLog(); // lanjut append ke file yang sama
+            SaveStateToJson();   // simpan perubahan konfigurasi
 
-            // Filter berdasarkan log: hanya file yang
-            // - belum pernah ada di log, atau
-            // - terakhir statusnya SKIP
-            ApplyLogFilterToSourceFiles();
-
-            if (_sourceFiles.Count == 0)
-            {
-                MessageBox.Show("Semua file di folder sumber sudah di-copy/move (tidak ada yang perlu dilanjutkan).");
-                return;
-            }
-
-            _isMoveOperation = (cmbMode.SelectedItem?.ToString() == "Move");
-            _isSorting = true;
-            _currentIndex = 0;
             _history.Clear();
+            _isSorting = true;
 
             progressBar1.Minimum = 0;
-            progressBar1.Maximum = _sourceFiles.Count;
+            progressBar1.Maximum = _items.Count;
             progressBar1.Value = 0;
 
-            lblStatus.Text = "Status: Continue sorting from log...";
-            ShowCurrentFile();
+            lblStatus.Text = "Status: Continue sorting from state...";
+
+            MoveToNextPendingFrom(-1);
         }
 
-        // Validasi folder sumber & destinasi
+        // ============================
+        // VALIDASI & HELPER DESTINASI
+        // ============================
         private bool ValidateSourceAndDest()
         {
             if (string.IsNullOrWhiteSpace(txtSourceFolder.Text) || !Directory.Exists(txtSourceFolder.Text))
@@ -190,20 +273,30 @@ namespace PicSorter
             return true;
         }
 
-        // Ambil semua file gambar dari folder sumber
-        private void LoadSourceFiles()
+        private List<DestinationFolderInfo> BuildDestinationList()
         {
-            string source = txtSourceFolder.Text;
-            var allowedExt = new[] { ".jpg", ".jpeg", ".png", ".bmp", ".gif" };
+            var list = new List<DestinationFolderInfo>();
 
-            _sourceFiles = Directory
-                .GetFiles(source)
-                .Where(f => allowedExt.Contains(Path.GetExtension(f).ToLower()))
-                .OrderBy(f => f)
-                .ToList();
+            foreach (DataGridViewRow row in dgvDestinations.Rows)
+            {
+                if (row.IsNewRow) continue;
+
+                string shortcut = Convert.ToString(row.Cells["ShortcutCol"].Value) ?? "";
+                string folder = Convert.ToString(row.Cells["FolderCol"].Value) ?? "";
+
+                if (string.IsNullOrWhiteSpace(shortcut) || string.IsNullOrWhiteSpace(folder))
+                    continue;
+
+                list.Add(new DestinationFolderInfo
+                {
+                    Shortcut = shortcut,
+                    FolderPath = folder
+                });
+            }
+
+            return list;
         }
 
-        // Bangun mapping Keys (D1, D2, dst) ke folder tujuan
         private void BuildDestinationMap()
         {
             _destinationMap.Clear();
@@ -212,8 +305,8 @@ namespace PicSorter
             {
                 if (row.IsNewRow) continue;
 
-                string shortcut = Convert.ToString(row.Cells["ShortcutCol"].Value);
-                string folder = Convert.ToString(row.Cells["FolderCol"].Value);
+                string shortcut = Convert.ToString(row.Cells["ShortcutCol"].Value) ?? "";
+                string folder = Convert.ToString(row.Cells["FolderCol"].Value) ?? "";
 
                 if (string.IsNullOrWhiteSpace(shortcut) || string.IsNullOrWhiteSpace(folder))
                     continue;
@@ -238,27 +331,87 @@ namespace PicSorter
             }
         }
 
-        // Siapkan path file log (di folder sumber) dan header jika perlu
-        private void PrepareNewSessionLog()
+        // ============================
+        // SIMPAN / LOAD STATE JSON
+        // ============================
+        private void SaveStateToJson()
         {
-            _logFilePath = Path.Combine(txtSourceFolder.Text, "sorting_log.csv");
-            if (!File.Exists(_logFilePath))
+            if (_state == null || string.IsNullOrEmpty(_stateFilePath))
+                return;
+
+            var options = new JsonSerializerOptions
             {
-                File.WriteAllText(_logFilePath, "Timestamp;Action;SourceFile;DestFile" + Environment.NewLine);
+                WriteIndented = true
+            };
+
+            try
+            {
+                string json = JsonSerializer.Serialize(_state, options);
+                File.WriteAllText(_stateFilePath, json);
             }
-            // Jika sudah ada, kita lanjut append (riwayat lama dipertahankan)
+            catch (Exception ex)
+            {
+                MessageBox.Show("Gagal menyimpan state ke JSON: " + ex.Message);
+            }
         }
 
-        // Append satu baris ke log
-        private void AppendLog(string action, string sourceFile, string? destFile)
+        private void LoadStateFromJson()
         {
-            if (string.IsNullOrEmpty(_logFilePath)) return;
+            if (string.IsNullOrEmpty(_stateFilePath) || !File.Exists(_stateFilePath))
+                return;
 
-            string line = $"{DateTime.Now:yyyy-MM-dd HH:mm:ss};{action};{sourceFile};{destFile ?? ""}";
-            File.AppendAllText(_logFilePath, line + Environment.NewLine);
+            try
+            {
+                string json = File.ReadAllText(_stateFilePath);
+                _state = JsonSerializer.Deserialize<SortState>(json) ?? new SortState();
+                _items = _state.Items ?? new List<SortItemState>();
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show("Gagal membaca state dari JSON: " + ex.Message);
+                _state = new SortState();
+                _items = new List<SortItemState>();
+            }
         }
 
-        // Tampilkan file saat ini di PictureBox
+        // ============================
+        // NAVIGASI ITEM
+        // ============================
+        private void MoveToNextPendingFrom(int startIndex)
+        {
+            if (_items.Count == 0)
+            {
+                _currentIndex = -1;
+                ShowCurrentFile();
+                return;
+            }
+
+            int idx = startIndex;
+
+            while (true)
+            {
+                idx++;
+
+                if (idx >= _items.Count)
+                {
+                    // Tidak ada lagi item yang Sorted == false
+                    _currentIndex = -1;
+                    ShowCurrentFile();
+                    return;
+                }
+
+                if (!_items[idx].Sorted)
+                {
+                    _currentIndex = idx;
+                    ShowCurrentFile();
+                    return;
+                }
+            }
+        }
+
+        // ============================
+        // TAMPILKAN FILE SAAT INI
+        // ============================
         private void ShowCurrentFile()
         {
             // Bersihkan image sebelumnya
@@ -269,41 +422,55 @@ namespace PicSorter
                 _currentImage = null;
             }
 
-            if (_currentIndex < 0 || _currentIndex >= _sourceFiles.Count)
+            if (_currentIndex < 0 || _currentIndex >= _items.Count)
             {
                 lblFileName.Text = "File: -";
                 lblIndex.Text = "0 / 0";
-                lblStatus.Text = "Status: Finished";
+                lblStatus.Text = "Status: Finished (tidak ada file pending)";
                 _isSorting = false;
                 return;
             }
 
-            string filePath = _sourceFiles[_currentIndex];
+            var item = _items[_currentIndex];
+            string filePath = item.SourcePath;
+
             lblFileName.Text = "File: " + Path.GetFileName(filePath);
-            lblIndex.Text = $"{_currentIndex + 1} / {_sourceFiles.Count}";
+            lblIndex.Text = $"{_currentIndex + 1} / {_items.Count}";
 
             string ext = Path.GetExtension(filePath).ToLower();
 
-            if (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".gif")
+            // Jika file gambar → load ke PictureBox
+            if (!item.IsVideo &&
+                (ext == ".jpg" || ext == ".jpeg" || ext == ".png" || ext == ".bmp" || ext == ".gif" || ext == ".jfif"))
             {
-                using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+                try
                 {
-                    _currentImage = Image.FromStream(fs);
+                    using (var fs = new FileStream(filePath, FileMode.Open, FileAccess.Read))
+                    {
+                        _currentImage = Image.FromStream(fs);
+                    }
+                    picPreview.Image = _currentImage;
+                    lblStatus.Text = "Status: Menampilkan gambar";
                 }
-                picPreview.Image = _currentImage;
+                catch (Exception ex)
+                {
+                    picPreview.Image = null;
+                    lblStatus.Text = "Status: Gagal memuat gambar: " + ex.Message;
+                }
             }
             else
             {
+                // File video (atau format lain yang belum didukung preview)
                 picPreview.Image = null;
-                lblStatus.Text = "Status: File bukan gambar (preview belum didukung).";
+                lblStatus.Text = "Status: Video file (preview belum tersedia).";
             }
         }
 
         // ============================
         // HANDLER KEYBOARD
-        // 1–0  = Copy/Move ke folder
-        // S    = Skip
-        // Back = Undo
+        // 1–0  = Assign ke folder (ubah state JSON)
+        // S    = Skip (state tetap Sorted=false)
+        // Back = Undo 1 langkah
         // ============================
         private void Form1_KeyDown(object? sender, KeyEventArgs e)
         {
@@ -324,133 +491,181 @@ namespace PicSorter
                 return;
             }
 
-            // COPY/MOVE DENGAN ANGKA
+            // ASSIGN DENGAN ANGKA
             if (_destinationMap.ContainsKey(e.KeyCode))
             {
-                HandleCopyOrMove(e.KeyCode);
+                HandleAssign(e.KeyCode);
                 return;
             }
         }
 
-        private void HandleCopyOrMove(Keys key)
+        private void HandleAssign(Keys key)
         {
-            if (_currentIndex < 0 || _currentIndex >= _sourceFiles.Count)
+            if (_currentIndex < 0 || _currentIndex >= _items.Count)
                 return;
 
-            string sourceFile = _sourceFiles[_currentIndex];
-            string destFolder = _destinationMap[key];
+            var item = _items[_currentIndex];
 
-            try
-            {
-                string destPath = Path.Combine(destFolder, Path.GetFileName(sourceFile));
-                destPath = GetUniqueFilePath(destPath);
-
-                if (_isMoveOperation)
-                {
-                    File.Move(sourceFile, destPath);
-                    AppendLog("Move", sourceFile, destPath);
-                    AddHistory("Move", sourceFile, destPath);
-                }
-                else
-                {
-                    File.Copy(sourceFile, destPath);
-                    AppendLog("Copy", sourceFile, destPath);
-                    AddHistory("Copy", sourceFile, destPath);
-                }
-
-                if (progressBar1.Value < progressBar1.Maximum)
-                    progressBar1.Value += 1;
-
-                _currentIndex++;
-                ShowCurrentFile();
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Gagal memproses file: " + ex.Message);
-            }
-        }
-
-        private void HandleSkip()
-        {
-            if (_currentIndex < 0 || _currentIndex >= _sourceFiles.Count)
+            if (!_destinationMap.TryGetValue(key, out string destFolder))
                 return;
 
-            string sourceFile = _sourceFiles[_currentIndex];
+            // Hanya mengubah state (belum memindah file)
+            item.DestFolderPath = destFolder;
+            item.Sorted = true;
+            item.LastAction = "Assign";
 
-            AppendLog("Skip", sourceFile, null);
-            AddHistory("Skip", sourceFile, null);
+            _history.Add(new SortActionRecord
+            {
+                Index = _currentIndex,
+                Action = "Assign"
+            });
 
             if (progressBar1.Value < progressBar1.Maximum)
                 progressBar1.Value += 1;
 
-            _currentIndex++;
-            ShowCurrentFile();
+            SaveStateToJson();
+
+            MoveToNextPendingFrom(_currentIndex);
+        }
+
+        private void HandleSkip()
+        {
+            if (_currentIndex < 0 || _currentIndex >= _items.Count)
+                return;
+
+            var item = _items[_currentIndex];
+
+            // Skip = user belum ingin memutuskan.
+            // Sorted tetap false, tapi kita catat LastAction = "Skip"
+            item.LastAction = "Skip";
+
+            _history.Add(new SortActionRecord
+            {
+                Index = _currentIndex,
+                Action = "Skip"
+            });
+
+            if (progressBar1.Value < progressBar1.Maximum)
+                progressBar1.Value += 1;
+
+            SaveStateToJson();
+
+            MoveToNextPendingFrom(_currentIndex);
         }
 
         private void HandleUndo()
         {
-            // Undo hanya 1 langkah terakhir
             if (_history.Count == 0)
                 return;
 
             var last = _history[_history.Count - 1];
 
-            try
+            if (last.Index < 0 || last.Index >= _items.Count)
             {
-                if (last.Action == "Copy" && !string.IsNullOrEmpty(last.DestFile))
-                {
-                    // Hapus file hasil copy
-                    if (File.Exists(last.DestFile))
-                    {
-                        File.Delete(last.DestFile);
-                    }
-                    AppendLog("UndoCopy", last.SourceFile, last.DestFile);
-                }
-                else if (last.Action == "Move" && !string.IsNullOrEmpty(last.DestFile))
-                {
-                    // Pindahkan kembali dari dest ke source
-                    if (File.Exists(last.DestFile))
-                    {
-                        File.Move(last.DestFile, last.SourceFile);
-                    }
-                    AppendLog("UndoMove", last.SourceFile, last.DestFile);
-                }
-                else if (last.Action == "Skip")
-                {
-                    // Skip tidak mengubah file di disk, cukup log
-                    AppendLog("UndoSkip", last.SourceFile, null);
-                }
-
-                // Kembalikan index
-                _currentIndex = last.Index;
-
-                // Sesuaikan progress bar (mundur 1 langkah)
-                if (progressBar1.Value > 0)
-                    progressBar1.Value -= 1;
-
-                // Hapus history terakhir
                 _history.RemoveAt(_history.Count - 1);
+                return;
+            }
 
-                // Tampilkan kembali file tersebut
-                _isSorting = true;
-                ShowCurrentFile();
-                lblStatus.Text = "Status: Undo last action";
-            }
-            catch (Exception ex)
+            var item = _items[last.Index];
+
+            if (last.Action == "Assign")
             {
-                MessageBox.Show("Gagal melakukan undo: " + ex.Message);
+                // Kembalikan ke kondisi belum diputuskan
+                item.Sorted = false;
+                item.DestFolderPath = null;
+                item.LastAction = "UndoAssign";
             }
+            else if (last.Action == "Skip")
+            {
+                // Kembalikan dari Skip → belum ada aksi
+                item.LastAction = "UndoSkip";
+                // Sorted memang sudah false dari awal
+            }
+
+            _history.RemoveAt(_history.Count - 1);
+
+            if (progressBar1.Value > 0)
+                progressBar1.Value -= 1;
+
+            _currentIndex = last.Index;
+            _isSorting = true;
+
+            SaveStateToJson();
+            ShowCurrentFile();
+            lblStatus.Text = "Status: Undo last action";
         }
 
-        private void AddHistory(string action, string sourceFile, string? destFile)
+        // ============================
+        // SAVE (APPLY CHANGES) → COPY/MOVE SEBENARNYA
+        // ============================
+        private void btnSavePlan_Click(object sender, EventArgs e)
         {
-            _history.Add(new SortActionRecord
+            if (_state == null || _items.Count == 0)
             {
-                Index = _currentIndex,
-                SourceFile = sourceFile,
-                Action = action,
-                DestFile = destFile
-            });
+                MessageBox.Show("Tidak ada state aktif. Mulai sorting terlebih dahulu.");
+                return;
+            }
+
+            if (string.IsNullOrEmpty(_state.SourceFolder) || !Directory.Exists(_state.SourceFolder))
+            {
+                MessageBox.Show("Folder sumber pada state tidak ditemukan.");
+                return;
+            }
+
+            bool isMove = (cmbMode.SelectedItem?.ToString() == "Move");
+            _state.Mode = isMove ? "Move" : "Copy";
+
+            int appliedCount = 0;
+
+            foreach (var item in _state.Items)
+            {
+                // Hanya proses item yang:
+                // - Sorted == true (sudah di-assign)
+                // - DestFolderPath != null
+                // - Belum Committed (belum pernah diproses Save)
+                if (!item.Sorted || item.Committed) continue;
+                if (string.IsNullOrEmpty(item.DestFolderPath)) continue;
+
+                string sourcePath = item.SourcePath;
+                string destFolder = item.DestFolderPath;
+
+                try
+                {
+                    if (!Directory.Exists(destFolder))
+                    {
+                        Directory.CreateDirectory(destFolder);
+                    }
+
+                    string destPath = Path.Combine(destFolder, Path.GetFileName(sourcePath));
+                    destPath = GetUniqueFilePath(destPath);
+
+                    if (File.Exists(sourcePath))
+                    {
+                        if (isMove)
+                        {
+                            File.Move(sourcePath, destPath);
+                        }
+                        else
+                        {
+                            File.Copy(sourcePath, destPath);
+                        }
+
+                        item.Committed = true;
+                        appliedCount++;
+                    }
+                    else
+                    {
+                        // File sumber sudah hilang, lewati saja
+                    }
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Gagal memproses file:\n{sourcePath}\n\n{ex.Message}");
+                }
+            }
+
+            SaveStateToJson();
+            MessageBox.Show($"Save selesai. {appliedCount} file diproses ({_state.Mode}).");
         }
 
         // Jika nama file sudah ada di folder tujuan, tambahkan (1), (2), dst
@@ -459,7 +674,9 @@ namespace PicSorter
             if (!File.Exists(initialPath))
                 return initialPath;
 
-            string dir = Path.GetDirectoryName(initialPath)!;
+            string? dir = Path.GetDirectoryName(initialPath);
+            if (dir == null) return initialPath;
+
             string name = Path.GetFileNameWithoutExtension(initialPath);
             string ext = Path.GetExtension(initialPath);
 
@@ -472,64 +689,6 @@ namespace PicSorter
             } while (File.Exists(newPath));
 
             return newPath;
-        }
-
-        // Baca sorting_log.csv dan filter _sourceFiles
-        // Hanya ambil file yang:
-        // - Tidak ada di log (belum pernah diproses)
-        // - Atau last action = Skip
-        private void ApplyLogFilterToSourceFiles()
-        {
-            _logFilePath = Path.Combine(txtSourceFolder.Text, "sorting_log.csv");
-            if (!File.Exists(_logFilePath))
-                return; // Tidak ada log, berarti tidak perlu filter
-
-            var lastState = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-
-            var lines = File.ReadAllLines(_logFilePath);
-            // Skip header
-            foreach (var line in lines.Skip(1))
-            {
-                if (string.IsNullOrWhiteSpace(line)) continue;
-
-                var parts = line.Split(';');
-                if (parts.Length < 4) continue;
-
-                string action = parts[1];
-                string sourceFile = parts[2];
-
-                // Update state terakhir per file
-                // Copy/Move/Skip/UndoCopy/UndoMove/UndoSkip
-                switch (action)
-                {
-                    case "Copy":
-                    case "Move":
-                    case "Skip":
-                        lastState[sourceFile] = action;
-                        break;
-                    case "UndoCopy":
-                    case "UndoMove":
-                    case "UndoSkip":
-                        // Undo artinya kembali ke "belum diproses"
-                        if (lastState.ContainsKey(sourceFile))
-                            lastState.Remove(sourceFile);
-                        break;
-                }
-            }
-
-            _sourceFiles = _sourceFiles
-                .Where(f =>
-                {
-                    if (!lastState.TryGetValue(f, out var state))
-                    {
-                        // belum pernah ada di log
-                        return true;
-                    }
-
-                    // Hanya file yang terakhir statusnya Skip yang perlu dilanjutkan
-                    return state == "Skip";
-                })
-                .ToList();
         }
 
         // Handler lama yang tidak terpakai boleh dibiarkan kosong

@@ -48,6 +48,7 @@
             lblIndex = new Label();
             lblStatus = new Label();
             progressBar1 = new ProgressBar();
+            btnSavePlan = new Button();
             groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvDestinations).BeginInit();
             ((System.ComponentModel.ISupportInitialize)picPreview).BeginInit();
@@ -55,6 +56,7 @@
             // 
             // groupBox1
             // 
+            groupBox1.Controls.Add(btnSavePlan);
             groupBox1.Controls.Add(btnContinueFromLog);
             groupBox1.Controls.Add(btnStartSorting);
             groupBox1.Controls.Add(cmbMode);
@@ -75,11 +77,11 @@
             // 
             // btnContinueFromLog
             // 
-            btnContinueFromLog.Location = new Point(671, 105);
+            btnContinueFromLog.Location = new Point(830, 70);
             btnContinueFromLog.Name = "btnContinueFromLog";
-            btnContinueFromLog.Size = new Size(153, 29);
+            btnContinueFromLog.Size = new Size(140, 29);
             btnContinueFromLog.TabIndex = 9;
-            btnContinueFromLog.Text = "Continue from log...";
+            btnContinueFromLog.Text = "Continue";
             btnContinueFromLog.UseVisualStyleBackColor = true;
             btnContinueFromLog.Click += btnContinueFromLog_Click;
             // 
@@ -242,6 +244,16 @@
             progressBar1.Size = new Size(982, 10);
             progressBar1.TabIndex = 5;
             // 
+            // btnSavePlan
+            // 
+            btnSavePlan.Location = new Point(830, 140);
+            btnSavePlan.Name = "btnSavePlan";
+            btnSavePlan.Size = new Size(140, 29);
+            btnSavePlan.TabIndex = 10;
+            btnSavePlan.Text = "Apply Changes";
+            btnSavePlan.UseVisualStyleBackColor = true;
+            btnSavePlan.Click += btnSavePlan_Click;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(8F, 20F);
@@ -287,5 +299,6 @@
         private DataGridViewTextBoxColumn ShortcutCol;
         private DataGridViewTextBoxColumn FolderCol;
         private Button btnContinueFromLog;
+        private Button btnSavePlan;
     }
 }
