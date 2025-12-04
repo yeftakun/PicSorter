@@ -41,4 +41,5 @@ Aplikasi sederhana untuk menyortir foto dan video dengan cepat menggunakan short
 ## 🧩 Status
 
 🏁It works on my PC
+
 Rencana fitur lanjutan: thumbnail video, metadata EXIF, batch tagging, reject category.
