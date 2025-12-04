@@ -29,11 +29,14 @@
         private void InitializeComponent()
         {
             groupBox1 = new GroupBox();
+            btnContinueFromLog = new Button();
             btnStartSorting = new Button();
             cmbMode = new ComboBox();
             btnClearDestination = new Button();
             btnAddDestination = new Button();
             dgvDestinations = new DataGridView();
+            ShortcutCol = new DataGridViewTextBoxColumn();
+            FolderCol = new DataGridViewTextBoxColumn();
             lblDestinations = new Label();
             btnBrowseSource = new Button();
             txtSourceFolder = new TextBox();
@@ -45,9 +48,6 @@
             lblIndex = new Label();
             lblStatus = new Label();
             progressBar1 = new ProgressBar();
-            ShortcutCol = new DataGridViewTextBoxColumn();
-            FolderCol = new DataGridViewTextBoxColumn();
-            btnContinueFromLog = new Button();
             groupBox1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)dgvDestinations).BeginInit();
             ((System.ComponentModel.ISupportInitialize)picPreview).BeginInit();
@@ -73,6 +73,16 @@
             groupBox1.TabStop = false;
             groupBox1.Text = "Setup Sorting";
             // 
+            // btnContinueFromLog
+            // 
+            btnContinueFromLog.Location = new Point(671, 105);
+            btnContinueFromLog.Name = "btnContinueFromLog";
+            btnContinueFromLog.Size = new Size(153, 29);
+            btnContinueFromLog.TabIndex = 9;
+            btnContinueFromLog.Text = "Continue from log...";
+            btnContinueFromLog.UseVisualStyleBackColor = true;
+            btnContinueFromLog.Click += btnContinueFromLog_Click;
+            // 
             // btnStartSorting
             // 
             btnStartSorting.Location = new Point(830, 105);
@@ -88,9 +98,9 @@
             cmbMode.DropDownStyle = ComboBoxStyle.DropDownList;
             cmbMode.FormattingEnabled = true;
             cmbMode.Items.AddRange(new object[] { "Copy", "Move" });
-            cmbMode.Location = new Point(830, 71);
+            cmbMode.Location = new Point(735, 32);
             cmbMode.Name = "cmbMode";
-            cmbMode.Size = new Size(140, 28);
+            cmbMode.Size = new Size(107, 28);
             cmbMode.TabIndex = 7;
             // 
             // btnClearDestination
@@ -125,6 +135,22 @@
             dgvDestinations.SelectionMode = DataGridViewSelectionMode.FullRowSelect;
             dgvDestinations.Size = new Size(350, 90);
             dgvDestinations.TabIndex = 4;
+            // 
+            // ShortcutCol
+            // 
+            ShortcutCol.HeaderText = "Shortcut";
+            ShortcutCol.MinimumWidth = 6;
+            ShortcutCol.Name = "ShortcutCol";
+            ShortcutCol.ReadOnly = true;
+            ShortcutCol.Width = 76;
+            // 
+            // FolderCol
+            // 
+            FolderCol.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
+            FolderCol.HeaderText = "Folder Path";
+            FolderCol.MinimumWidth = 6;
+            FolderCol.Name = "FolderCol";
+            FolderCol.ReadOnly = true;
             // 
             // lblDestinations
             // 
@@ -215,32 +241,6 @@
             progressBar1.Name = "progressBar1";
             progressBar1.Size = new Size(982, 10);
             progressBar1.TabIndex = 5;
-            // 
-            // ShortcutCol
-            // 
-            ShortcutCol.HeaderText = "Shortcut";
-            ShortcutCol.MinimumWidth = 6;
-            ShortcutCol.Name = "ShortcutCol";
-            ShortcutCol.ReadOnly = true;
-            ShortcutCol.Width = 76;
-            // 
-            // FolderCol
-            // 
-            FolderCol.AutoSizeMode = DataGridViewAutoSizeColumnMode.Fill;
-            FolderCol.HeaderText = "Folder Path";
-            FolderCol.MinimumWidth = 6;
-            FolderCol.Name = "FolderCol";
-            FolderCol.ReadOnly = true;
-            // 
-            // btnContinueFromLog
-            // 
-            btnContinueFromLog.Location = new Point(735, 30);
-            btnContinueFromLog.Name = "btnContinueFromLog";
-            btnContinueFromLog.Size = new Size(153, 29);
-            btnContinueFromLog.TabIndex = 9;
-            btnContinueFromLog.Text = "Continue from log...";
-            btnContinueFromLog.UseVisualStyleBackColor = true;
-            btnContinueFromLog.Click += btnContinueFromLog_Click;
             // 
             // Form1
             // 
