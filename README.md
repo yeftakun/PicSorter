@@ -15,7 +15,7 @@ Menyortir foto dan video dengan cepat menggunakan shortcut keyboard.
 * `Copy` atau `Move`
 * **Skip (`S`)** — lewati file
 * **Undo (`Backspace`)** — mengembalikan aksi terakhir
-* **Deferred Execution** — file baru dipindahkan saat menekan **Apply Changes**
+* File baru dipindahkan saat menekan **Apply Changes**
 * Lanjutkan sesi kapan saja via `sorting_state.json`
 
 ---
