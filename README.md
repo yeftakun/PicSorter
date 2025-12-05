@@ -42,4 +42,4 @@ Menyortir foto dan video dengan cepat menggunakan shortcut keyboard.
 
 🏁It works on my PC
 
-Rencana fitur lanjutan: thumbnail video, metadata EXIF, batch tagging, reject category.
+Rencana fitur lanjutan: thumbnail video, metadata EXIF
