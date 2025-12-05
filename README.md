@@ -47,3 +47,7 @@ Menyortir foto dan video dengan cepat menggunakan shortcut keyboard.
 🏁It works on my PC
 
 Rencana fitur: thumbnail video, metadata EXIF
+
+---
+
+[Any bugs?](https://github.com/yeftakun/PicSorting/issues)
