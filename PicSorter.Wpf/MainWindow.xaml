@@ -47,10 +47,21 @@
             </Grid.ColumnDefinitions>
 
             <!-- PREVIEW -->
-            <Border Grid.Column="0" BorderBrush="LightGray" BorderThickness="1" Margin="10">
-                <Grid>
+            <Border Grid.Column="0" BorderBrush="LightGray" BorderThickness="1" Margin="10" ClipToBounds="True">
+                <Grid x:Name="gridPreview" Background="Transparent" 
+                      MouseWheel="GridPreview_MouseWheel" 
+                      MouseLeftButtonDown="GridPreview_MouseLeftButtonDown"
+                      MouseLeftButtonUp="GridPreview_MouseLeftButtonUp"
+                      MouseMove="GridPreview_MouseMove">
                     <TextBlock Text="No Image" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray"/>
-                    <Image x:Name="imgPreview" Stretch="Uniform"/>
+                    <Image x:Name="imgPreview" Stretch="Uniform" RenderTransformOrigin="0,0">
+                        <Image.RenderTransform>
+                            <TransformGroup>
+                                <ScaleTransform x:Name="imgScale"/>
+                                <TranslateTransform x:Name="imgTranslate"/>
+                            </TransformGroup>
+                        </Image.RenderTransform>
+                    </Image>
                 </Grid>
             </Border>
 
