@@ -91,7 +91,16 @@
                     </StackPanel>
 
                     <TextBlock Text="Shortcuts Info" FontWeight="Bold" Margin="0,0,0,5"/>
-                    <TextBlock Text="1-0: Assign to Destination&#x0a;S: Skip&#x0a;Backspace: Undo" Foreground="DarkGray" Margin="0,0,0,20"/>
+                    <TextBlock Text="1-0: Assign to Destination&#x0a;S: Skip&#x0a;Backspace: Undo&#x0a;Left/Right: Browse" Foreground="DarkGray" Margin="0,0,0,20"/>
+                    
+                    <TextBlock Text="Session Statistics" FontWeight="Bold" Margin="0,0,0,5"/>
+                    <ItemsControl ItemsSource="{Binding SessionStatistics}" Margin="0,0,0,20">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}" Foreground="DarkGray"/>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
                 </StackPanel>
             </Border>
         </Grid>

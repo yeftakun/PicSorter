@@ -100,6 +100,14 @@ namespace PicSorter.Wpf
             {
                 keyStr = "Back";
             }
+            else if (e.Key == Key.Left)
+            {
+                keyStr = "Left";
+            }
+            else if (e.Key == Key.Right)
+            {
+                keyStr = "Right";
+            }
 
             if (!string.IsNullOrEmpty(keyStr))
             {

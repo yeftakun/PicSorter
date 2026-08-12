@@ -75,9 +75,12 @@ namespace PicSorter.Core.ViewModels
         private SortState? _state;
         private List<SortItemState> _items = new();
         private int _currentIndex = -1;
+        private int _displayIndex = -1;
         private Stack<SortActionRecord> _history = new();
         private bool _isSorting = false;
         private Dictionary<string, string> _destinationMap = new();
+
+        public ObservableCollection<string> SessionStatistics { get; } = new();
 
         public Action<string>? ShowMessage { get; set; }
         public Func<string, string>? BrowseFolderDialog { get; set; }
@@ -193,6 +196,8 @@ namespace PicSorter.Core.ViewModels
             string stateFile = Path.Combine(SourceFolder, "sorting_state.json");
             await _stateService.SaveStateAsync(stateFile, _state);
 
+            UpdateStatistics();
+
             ProgressMaximum = _items.Count;
             ProgressValue = 0;
             StatusText = "Status: Sorting in progress (state baru)...";
@@ -221,6 +226,8 @@ namespace PicSorter.Core.ViewModels
             
             BuildDestinationMap();
             await _stateService.SaveStateAsync(stateFile, _state);
+
+            UpdateStatistics();
 
             _history.Clear();
             _isSorting = true;
@@ -263,9 +270,15 @@ namespace PicSorter.Core.ViewModels
 
         private async Task ShowCurrentFileAsync()
         {
+            _displayIndex = _currentIndex;
+            await ShowFileAsync(_displayIndex);
+        }
+
+        private async Task ShowFileAsync(int index)
+        {
             CurrentImageBytes = null;
 
-            if (_currentIndex < 0 || _currentIndex >= _items.Count)
+            if (index < 0 || index >= _items.Count)
             {
                 FileName = "File: -";
                 ProgressText = "0 / 0";
@@ -274,9 +287,9 @@ namespace PicSorter.Core.ViewModels
                 return;
             }
 
-            var item = _items[_currentIndex];
+            var item = _items[index];
             FileName = "File: " + Path.GetFileName(item.SourcePath);
-            ProgressText = $"{_currentIndex + 1} / {_items.Count}";
+            ProgressText = $"{index + 1} / {_items.Count}";
 
             if (!item.IsVideo)
             {
@@ -304,9 +317,40 @@ namespace PicSorter.Core.ViewModels
             }
         }
 
+        public async Task BrowseNextAsync()
+        {
+            if (_items.Count == 0) return;
+            if (_displayIndex < _items.Count - 1)
+            {
+                _displayIndex++;
+                await ShowFileAsync(_displayIndex);
+            }
+        }
+
+        public async Task BrowsePreviousAsync()
+        {
+            if (_items.Count == 0) return;
+            if (_displayIndex > 0)
+            {
+                _displayIndex--;
+                await ShowFileAsync(_displayIndex);
+            }
+        }
+
         public async Task TryGetCommandForKey(string keyStr)
         {
-            if (!_isSorting && keyStr != "Back") return;
+            if (!_isSorting && keyStr != "Back" && keyStr != "Left" && keyStr != "Right") return;
+
+            if (keyStr == "Left")
+            {
+                await BrowsePreviousAsync();
+                return;
+            }
+            if (keyStr == "Right")
+            {
+                await BrowseNextAsync();
+                return;
+            }
 
             if (keyStr == "Back")
             {
@@ -315,12 +359,24 @@ namespace PicSorter.Core.ViewModels
             }
             if (keyStr == "S")
             {
+                if (_displayIndex != _currentIndex)
+                {
+                    _displayIndex = _currentIndex;
+                    await ShowFileAsync(_displayIndex);
+                    return;
+                }
                 await HandleSkipAsync();
                 return;
             }
             
             if (_destinationMap.TryGetValue(keyStr, out string? destFolder))
             {
+                if (_displayIndex != _currentIndex)
+                {
+                    _displayIndex = _currentIndex;
+                    await ShowFileAsync(_displayIndex);
+                    return;
+                }
                 await HandleAssignAsync(destFolder);
             }
         }
@@ -341,6 +397,8 @@ namespace PicSorter.Core.ViewModels
             string stateFile = Path.Combine(SourceFolder, "sorting_state.json");
             await _stateService.SaveStateAsync(stateFile, _state!);
 
+            UpdateStatistics();
+
             await MoveToNextPendingFromAsync(_currentIndex);
         }
 
@@ -356,6 +414,8 @@ namespace PicSorter.Core.ViewModels
 
             string stateFile = Path.Combine(SourceFolder, "sorting_state.json");
             await _stateService.SaveStateAsync(stateFile, _state!);
+
+            UpdateStatistics();
 
             await MoveToNextPendingFromAsync(_currentIndex);
         }
@@ -389,6 +449,8 @@ namespace PicSorter.Core.ViewModels
 
             string stateFile = Path.Combine(SourceFolder, "sorting_state.json");
             await _stateService.SaveStateAsync(stateFile, _state!);
+
+            UpdateStatistics();
 
             await ShowCurrentFileAsync();
             StatusText = "Status: Undo last action";
@@ -434,6 +496,22 @@ namespace PicSorter.Core.ViewModels
             await _stateService.SaveStateAsync(stateFile, _state);
 
             ShowMessage?.Invoke($"Save selesai. {appliedCount} file diproses ({_state.Mode}).");
+        }
+
+        private void UpdateStatistics()
+        {
+            if (_items == null) return;
+            var stats = _items
+                .Where(i => i.Sorted && !string.IsNullOrEmpty(i.DestFolderPath))
+                .GroupBy(i => i.DestFolderPath!)
+                .Select(g => $"{Path.GetFileName(g.Key)}: {g.Count()}")
+                .ToList();
+
+            SessionStatistics.Clear();
+            foreach (var s in stats)
+            {
+                SessionStatistics.Add(s);
+            }
         }
     }
 }
