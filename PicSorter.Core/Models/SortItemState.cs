@@ -9,5 +9,8 @@ namespace PicSorter.Core.Models
         public string? DestFolderPath { get; set; }
         public string? LastAction { get; set; }
         public bool Committed { get; set; } = false;
+
+        public bool IsDuplicate { get; set; } = false;
+        public string? DuplicateGroupId { get; set; }
     }
 }

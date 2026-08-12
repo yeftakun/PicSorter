@@ -7,6 +7,10 @@
         mc:Ignorable="d"
         Title="PicSorter WPF" Height="700" Width="1000"
         KeyDown="Window_KeyDown">
+    <Window.Resources>
+        <BooleanToVisibilityConverter x:Key="BoolToVis"/>
+    </Window.Resources>
+
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/> <!-- Toolbar -->
@@ -112,7 +116,12 @@
             </StatusBarItem>
             <Separator/>
             <StatusBarItem>
-                <TextBlock Text="{Binding FileName}" Width="350"/>
+                <TextBlock Text="{Binding FileName}" Width="250"/>
+            </StatusBarItem>
+            <Separator/>
+            <StatusBarItem>
+                <TextBlock Text="DUPLICATE!" Foreground="White" Background="Red" Padding="5,0" FontWeight="Bold" Width="80" TextAlignment="Center"
+                           Visibility="{Binding IsCurrentFileDuplicate, Converter={StaticResource BoolToVis}}"/>
             </StatusBarItem>
             <Separator/>
             <StatusBarItem>

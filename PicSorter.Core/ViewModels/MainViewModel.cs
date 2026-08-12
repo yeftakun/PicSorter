@@ -18,6 +18,7 @@ namespace PicSorter.Core.ViewModels
         private readonly SortStateService _stateService;
         private readonly FileOperationService _operationService;
         private readonly ExifService _exifService;
+        private readonly DuplicateDetectionService _duplicateService;
 
         public MainViewModel()
         {
@@ -25,6 +26,7 @@ namespace PicSorter.Core.ViewModels
             _stateService = new SortStateService();
             _operationService = new FileOperationService();
             _exifService = new ExifService();
+            _duplicateService = new DuplicateDetectionService();
 
             Modes = new ObservableCollection<string> { "Copy", "Move" };
             SelectedMode = Modes[0];
@@ -71,6 +73,12 @@ namespace PicSorter.Core.ViewModels
 
         [ObservableProperty]
         private ExifInfo? _currentExif;
+
+        [ObservableProperty]
+        private bool _isCurrentFileDuplicate;
+
+        [ObservableProperty]
+        private string _currentFileDuplicateGroup = "";
 
         private SortState? _state;
         private List<SortItemState> _items = new();
@@ -189,6 +197,30 @@ namespace PicSorter.Core.ViewModels
             };
 
             _items = _state.Items;
+
+            StatusText = "Status: Detecting duplicates...";
+            ProgressMaximum = 100;
+            ProgressValue = 0;
+
+            var progress = new Progress<int>(p => ProgressValue = p);
+            var duplicateGroups = await _duplicateService.FindDuplicatesAsync(_items.Select(i => i.SourcePath), progress);
+
+            int groupId = 1;
+            foreach (var group in duplicateGroups)
+            {
+                string idStr = groupId.ToString();
+                foreach (var path in group)
+                {
+                    var match = _items.FirstOrDefault(i => i.SourcePath == path);
+                    if (match != null)
+                    {
+                        match.IsDuplicate = true;
+                        match.DuplicateGroupId = idStr;
+                    }
+                }
+                groupId++;
+            }
+
             _history.Clear();
             _isSorting = true;
             BuildDestinationMap();
@@ -290,6 +322,8 @@ namespace PicSorter.Core.ViewModels
             var item = _items[index];
             FileName = "File: " + Path.GetFileName(item.SourcePath);
             ProgressText = $"{index + 1} / {_items.Count}";
+            IsCurrentFileDuplicate = item.IsDuplicate;
+            CurrentFileDuplicateGroup = item.DuplicateGroupId ?? "";
 
             if (!item.IsVideo)
             {
