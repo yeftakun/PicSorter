@@ -60,7 +60,7 @@ namespace PicSorter.Core.ViewModels
         private SortState? _state;
         private List<SortItemState> _items = new();
         private int _currentIndex = -1;
-        private List<SortActionRecord> _history = new();
+        private Stack<SortActionRecord> _history = new();
         private bool _isSorting = false;
         private Dictionary<string, string> _destinationMap = new();
 
@@ -285,7 +285,7 @@ namespace PicSorter.Core.ViewModels
 
         public async Task TryGetCommandForKey(string keyStr)
         {
-            if (!_isSorting) return;
+            if (!_isSorting && keyStr != "Back") return;
 
             if (keyStr == "Back")
             {
@@ -313,7 +313,7 @@ namespace PicSorter.Core.ViewModels
             item.Sorted = true;
             item.LastAction = "Assign";
 
-            _history.Add(new SortActionRecord { Index = _currentIndex, Action = "Assign" });
+            _history.Push(new SortActionRecord { Index = _currentIndex, Action = "Assign" });
 
             if (ProgressValue < ProgressMaximum) ProgressValue++;
 
@@ -329,7 +329,7 @@ namespace PicSorter.Core.ViewModels
 
             var item = _items[_currentIndex];
             item.LastAction = "Skip";
-            _history.Add(new SortActionRecord { Index = _currentIndex, Action = "Skip" });
+            _history.Push(new SortActionRecord { Index = _currentIndex, Action = "Skip" });
 
             if (ProgressValue < ProgressMaximum) ProgressValue++;
 
@@ -343,10 +343,9 @@ namespace PicSorter.Core.ViewModels
         {
             if (_history.Count == 0) return;
 
-            var last = _history[^1];
+            var last = _history.Pop();
             if (last.Index < 0 || last.Index >= _items.Count)
             {
-                _history.RemoveAt(_history.Count - 1);
                 return;
             }
 
@@ -361,8 +360,6 @@ namespace PicSorter.Core.ViewModels
             {
                 item.LastAction = "UndoSkip";
             }
-
-            _history.RemoveAt(_history.Count - 1);
 
             if (ProgressValue > 0) ProgressValue--;
 
