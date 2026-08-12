@@ -5,9 +5,11 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PicSorter.Wpf"
         xmlns:views="clr-namespace:PicSorter.Wpf.Views"
+        xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
         mc:Ignorable="d"
-        Title="PicSorter WPF" Height="700" Width="1000"
+        Title="PicSorter" Height="740" Width="1100"
         KeyDown="Window_KeyDown">
+
     <Window.Resources>
         <BooleanToVisibilityConverter x:Key="BoolToVis"/>
     </Window.Resources>
@@ -20,30 +22,65 @@
         </Grid.RowDefinitions>
 
         <!-- TOOLBAR -->
-        <Border Grid.Row="0" Background="#F0F0F0" Padding="10">
-            <StackPanel Orientation="Vertical" Margin="0,0,0,10">
-                <StackPanel Orientation="Horizontal" Margin="0,5">
-                    <TextBlock Text="Source Folder:" VerticalAlignment="Center" Width="100"/>
-                    <TextBox Text="{Binding SourceFolder}" Width="400" Margin="0,0,10,0"/>
-                    <Button Content="Browse..." Command="{Binding BrowseSourceCommand}" Width="80"/>
+        <Border Grid.Row="0" Padding="12,8">
+            <StackPanel Orientation="Vertical">
+                <!-- Row 1: Source folder -->
+                <StackPanel Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="Source:" VerticalAlignment="Center" Width="55" FontWeight="Medium"/>
+                    <ui:TextBox Text="{Binding SourceFolder}" Width="420" Margin="0,0,8,0" PlaceholderText="Pilih folder sumber..."/>
+                    <ui:Button Content="Browse..." Command="{Binding BrowseSourceCommand}" Width="90"/>
                 </StackPanel>
-                
-                <StackPanel Orientation="Horizontal" Margin="0,5">
-                    <TextBlock Text="Mode:" VerticalAlignment="Center" Width="100"/>
-                    <ComboBox ItemsSource="{Binding Modes}" SelectedItem="{Binding SelectedMode}" Width="80" Margin="0,0,10,0"/>
-                    
-                    <TextBlock Text="Sort by:" VerticalAlignment="Center" Margin="0,0,5,0"/>
-                    <ComboBox ItemsSource="{Binding SortCriteriaOptions}" SelectedItem="{Binding SelectedSortCriteria}" Width="110" Margin="0,0,15,0"/>
-                    
-                    <CheckBox Content="Include subfolders" IsChecked="{Binding IncludeSubfolders}" VerticalAlignment="Center" Margin="0,0,15,0"/>
-                    
-                    <Button Content="Start Sorting" Command="{Binding StartSortingCommand}" Width="100" Margin="0,0,10,0"/>
-                    <Button Content="Continue" Command="{Binding ContinueFromLogCommand}" Width="80" Margin="0,0,10,0"/>
-                    <Button Content="Save / Apply" Command="{Binding SavePlanCommand}" Width="90" Margin="0,0,10,0"/>
-                    
-                    <TextBlock Text="Dest:" VerticalAlignment="Center" Margin="10,0,5,0"/>
-                    <Button Content="Add" Command="{Binding AddDestinationCommand}" Width="50" Margin="0,0,5,0"/>
-                    <Button Content="Clear" Command="{Binding ClearDestinationsCommand}" Width="50"/>
+
+                <!-- Row 2: Options + Actions -->
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <!-- Mode selector + visual indicator -->
+                    <TextBlock Text="Mode:" VerticalAlignment="Center" Width="45" FontWeight="Medium"/>
+                    <ComboBox ItemsSource="{Binding Modes}" SelectedItem="{Binding SelectedMode}" Width="80" Margin="0,0,8,0"/>
+                    <Border CornerRadius="4" Padding="8,3" Margin="0,0,14,0" VerticalAlignment="Center">
+                        <Border.Style>
+                            <Style TargetType="Border">
+                                <Setter Property="Background" Value="#0078D4"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding SelectedMode}" Value="Move">
+                                        <Setter Property="Background" Value="#CC3600"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Border.Style>
+                        <TextBlock FontSize="11" FontWeight="Bold" Foreground="White">
+                            <TextBlock.Style>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Text" Value="COPY — aman"/>
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding SelectedMode}" Value="Move">
+                                            <Setter Property="Text" Value="⚠ MOVE — destruktif!"/>
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Border>
+
+                    <Separator Width="1" Height="20" Margin="0,0,10,0"/>
+
+                    <!-- Sort options -->
+                    <TextBlock Text="Sort:" VerticalAlignment="Center" Margin="0,0,5,0" FontWeight="Medium"/>
+                    <ComboBox ItemsSource="{Binding SortCriteriaOptions}" SelectedItem="{Binding SelectedSortCriteria}" Width="110" Margin="0,0,8,0"/>
+                    <CheckBox Content="Subfolders" IsChecked="{Binding IncludeSubfolders}" VerticalAlignment="Center" Margin="0,0,14,0"/>
+
+                    <Separator Width="1" Height="20" Margin="0,0,10,0"/>
+
+                    <!-- Action buttons -->
+                    <ui:Button Content="Start Sorting" Command="{Binding StartSortingCommand}" Margin="0,0,6,0" Appearance="Primary"/>
+                    <ui:Button Content="Continue" Command="{Binding ContinueFromLogCommand}" Margin="0,0,6,0"/>
+                    <ui:Button Content="Save / Apply" Command="{Binding SavePlanCommand}" Margin="0,0,14,0"/>
+
+                    <Separator Width="1" Height="20" Margin="0,0,10,0"/>
+
+                    <!-- Destination quick buttons -->
+                    <TextBlock Text="Dest:" VerticalAlignment="Center" Margin="0,0,5,0" FontWeight="Medium"/>
+                    <ui:Button Content="Add" Command="{Binding AddDestinationCommand}" Width="55" Margin="0,0,5,0"/>
+                    <ui:Button Content="Clear" Command="{Binding ClearDestinationsCommand}" Width="55"/>
                 </StackPanel>
             </StackPanel>
         </Border>
@@ -52,68 +89,100 @@
         <Grid Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="300"/>
+                <ColumnDefinition Width="290"/>
             </Grid.ColumnDefinitions>
 
-            <!-- PREVIEW -->
-            <Border Grid.Column="0" BorderBrush="LightGray" BorderThickness="1" Margin="10" ClipToBounds="True">
-                <views:SinglePreviewView />
+            <!-- PREVIEW (swappable UserControl — SinglePreviewView / GridPreviewView) -->
+            <Border Grid.Column="0" BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                    BorderThickness="1" Margin="10" CornerRadius="4" ClipToBounds="True">
+                <views:SinglePreviewView/>
             </Border>
 
             <!-- PANEL INFO (Kanan) -->
-            <Border Grid.Column="1" BorderBrush="LightGray" BorderThickness="1,0,0,0" Padding="10">
-                <StackPanel>
-                    <TextBlock Text="Destinations" FontWeight="Bold" Margin="0,0,0,10"/>
-                    
-                    <ListView ItemsSource="{Binding Destinations}" Height="200" Margin="0,0,0,20">
-                        <ListView.View>
-                            <GridView>
-                                <GridViewColumn Header="Key" DisplayMemberBinding="{Binding Shortcut}" Width="50"/>
-                                <GridViewColumn Header="Folder" DisplayMemberBinding="{Binding FolderPath}" Width="200"/>
-                            </GridView>
-                        </ListView.View>
-                    </ListView>
+            <Border Grid.Column="1" BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                    BorderThickness="1,0,0,0" Padding="12">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel>
+                        <!-- Destinations -->
+                        <TextBlock Text="Destinations" FontWeight="Bold" FontSize="13" Margin="0,0,0,8"/>
+                        <ListView ItemsSource="{Binding Destinations}" Height="180" Margin="0,0,0,16"
+                                  BorderThickness="1" BorderBrush="{DynamicResource ControlElevationBorderBrush}">
+                            <ListView.View>
+                                <GridView>
+                                    <GridViewColumn Header="Key" DisplayMemberBinding="{Binding Shortcut}" Width="40"/>
+                                    <GridViewColumn Header="Folder" DisplayMemberBinding="{Binding FolderPath}" Width="200"/>
+                                </GridView>
+                            </ListView.View>
+                        </ListView>
 
-                    <TextBlock Text="EXIF Metadata" FontWeight="Bold" Margin="0,0,0,5"/>
-                    <StackPanel Margin="0,0,0,20">
-                        <TextBlock Text="{Binding CurrentExif.DateTaken, StringFormat='Date: \{0\}', TargetNullValue='Date: -', FallbackValue='Date: -'}" Foreground="DarkGray"/>
-                        <TextBlock Text="{Binding CurrentExif.CameraModel, StringFormat='Camera: \{0\}', TargetNullValue='Camera: -', FallbackValue='Camera: -'}" Foreground="DarkGray"/>
-                        <TextBlock Text="{Binding CurrentExif.Resolution, StringFormat='Resolution: \{0\}', TargetNullValue='Resolution: -', FallbackValue='Resolution: -'}" Foreground="DarkGray"/>
+                        <!-- EXIF Metadata -->
+                        <TextBlock Text="EXIF Metadata" FontWeight="Bold" FontSize="13" Margin="0,0,0,6"/>
+                        <StackPanel Margin="0,0,0,16">
+                            <TextBlock Text="{Binding CurrentExif.DateTaken, StringFormat='Date: \{0\}', TargetNullValue='Date: —', FallbackValue='Date: —'}"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            <TextBlock Text="{Binding CurrentExif.CameraModel, StringFormat='Camera: \{0\}', TargetNullValue='Camera: —', FallbackValue='Camera: —'}"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                            <TextBlock Text="{Binding CurrentExif.Resolution, StringFormat='Res: \{0\}', TargetNullValue='Res: —', FallbackValue='Res: —'}"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                        </StackPanel>
+
+                        <!-- Session Statistics -->
+                        <TextBlock Text="Session Statistics" FontWeight="Bold" FontSize="13" Margin="0,0,0,6"/>
+                        <ItemsControl ItemsSource="{Binding SessionStatistics}">
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding}" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
                     </StackPanel>
-                    
-                    <TextBlock Text="Session Statistics" FontWeight="Bold" Margin="0,0,0,5"/>
-                    <ItemsControl ItemsSource="{Binding SessionStatistics}" Margin="0,0,0,20">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <TextBlock Text="{Binding}" Foreground="DarkGray"/>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                </StackPanel>
+                </ScrollViewer>
             </Border>
         </Grid>
 
         <!-- STATUS BAR -->
-        <StatusBar Grid.Row="2" Padding="5">
-            <StatusBarItem>
-                <ProgressBar Value="{Binding ProgressValue}" Maximum="{Binding ProgressMaximum}" Width="150" Height="15"/>
-            </StatusBarItem>
-            <StatusBarItem>
-                <TextBlock Text="{Binding ProgressText}" Margin="10,0,0,0"/>
-            </StatusBarItem>
-            <Separator/>
-            <StatusBarItem>
-                <TextBlock Text="{Binding FileName}" Width="250"/>
-            </StatusBarItem>
-            <Separator/>
-            <StatusBarItem>
-                <TextBlock Text="DUPLICATE!" Foreground="White" Background="Red" Padding="5,0" FontWeight="Bold" Width="80" TextAlignment="Center"
-                           Visibility="{Binding IsCurrentFileDuplicate, Converter={StaticResource BoolToVis}}"/>
-            </StatusBarItem>
-            <Separator/>
-            <StatusBarItem>
-                <TextBlock Text="1-0: Assign | S: Skip | Backspace: Undo | Left/Right: Browse" Foreground="DarkGray"/>
-            </StatusBarItem>
-        </StatusBar>
+        <Border Grid.Row="2" BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource ControlElevationBorderBrush}"
+                Padding="12,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="Auto"/>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <ProgressBar Grid.Column="0" Value="{Binding ProgressValue}" Maximum="{Binding ProgressMaximum}"
+                             Width="130" Height="6" VerticalAlignment="Center" Margin="0,0,8,0"/>
+                <TextBlock Grid.Column="1" Text="{Binding ProgressText}" VerticalAlignment="Center"
+                           Margin="0,0,12,0" Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+
+                <Separator Grid.Column="2" Width="1" Height="14" Margin="0,0,12,0"/>
+
+                <TextBlock Grid.Column="3" Text="{Binding FileName}" VerticalAlignment="Center"
+                           Margin="0,0,8,0" MaxWidth="280" TextTrimming="CharacterEllipsis"/>
+
+                <!-- Duplicate InfoBadge -->
+                <ui:InfoBadge Grid.Column="4"
+                              Severity="Caution"
+                              Value="DUP"
+                              VerticalAlignment="Center"
+                              Margin="0,0,10,0"
+                              Visibility="{Binding IsCurrentFileDuplicate, Converter={StaticResource BoolToVis}}"/>
+
+                <TextBlock Grid.Column="5" Text="{Binding StatusText}" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"/>
+
+                <!-- Shortcut legend -->
+                <TextBlock Grid.Column="7" VerticalAlignment="Center"
+                           Foreground="{DynamicResource TextFillColorTertiaryBrush}" FontSize="11"
+                           Text="1-0: Assign  |  S: Skip  |  ⌫: Undo  |  ←/→: Browse"/>
+            </Grid>
+        </Border>
+
     </Grid>
 </Window>

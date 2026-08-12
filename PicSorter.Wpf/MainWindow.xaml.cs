@@ -1,11 +1,11 @@
 using System;
 using System.ComponentModel;
-using System.IO;
+using System.Threading;
 using System.Windows;
 using System.Windows.Input;
-using System.Windows.Media.Imaging;
 using Microsoft.Win32;
 using PicSorter.Core.ViewModels;
+using Wpf.Ui.Controls;
 
 namespace PicSorter.Wpf
 {
@@ -19,8 +19,20 @@ namespace PicSorter.Wpf
             _viewModel = new MainViewModel();
             DataContext = _viewModel;
 
-            _viewModel.ShowMessage = msg => MessageBox.Show(this, msg, "PicSorter", MessageBoxButton.OK, MessageBoxImage.Information);
-            
+            // Use WPF-UI ContentDialog instead of MessageBox
+            _viewModel.ShowMessage = async msg =>
+            {
+                var host = ContentDialogHost.GetForWindow(this);
+                var dialog = new ContentDialog
+                {
+                    Title = "PicSorter",
+                    Content = msg,
+                    CloseButtonText = "OK",
+                    DialogHostEx = host
+                };
+                await dialog.ShowAsync(CancellationToken.None);
+            };
+
             _viewModel.BrowseFolderDialog = description =>
             {
                 var dialog = new OpenFolderDialog
@@ -39,12 +51,12 @@ namespace PicSorter.Wpf
 
         private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
         {
-            // Removed image loading here; it is now handled by SinglePreviewView
+            // Image loading is handled inside SinglePreviewView
         }
 
         private async void Window_KeyDown(object sender, KeyEventArgs e)
         {
-            // Abaikan input jika fokus sedang di TextBox
+            // Ignore input if focus is in a TextBox
             if (e.OriginalSource is System.Windows.Controls.TextBox)
                 return;
 

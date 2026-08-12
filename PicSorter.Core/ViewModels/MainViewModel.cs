@@ -90,7 +90,7 @@ namespace PicSorter.Core.ViewModels
 
         public ObservableCollection<string> SessionStatistics { get; } = new();
 
-        public Action<string>? ShowMessage { get; set; }
+        public Func<string, Task>? ShowMessage { get; set; }
         public Func<string, string>? BrowseFolderDialog { get; set; }
 
         [RelayCommand]
@@ -107,11 +107,11 @@ namespace PicSorter.Core.ViewModels
         }
 
         [RelayCommand]
-        private void AddDestination()
+        private async Task AddDestination()
         {
             if (Destinations.Count >= 10)
             {
-                ShowMessage?.Invoke("Maksimal 10 folder (shortcut 1–0).");
+                await (ShowMessage?.Invoke("Maksimal 10 folder (shortcut 1\u20130).") ?? Task.CompletedTask);
                 return;
             }
 
@@ -133,17 +133,17 @@ namespace PicSorter.Core.ViewModels
             Destinations.Clear();
         }
 
-        private bool ValidateSourceAndDest()
+        private async Task<bool> ValidateSourceAndDest()
         {
             if (string.IsNullOrWhiteSpace(SourceFolder) || !Directory.Exists(SourceFolder))
             {
-                ShowMessage?.Invoke("Pilih folder sumber yang valid terlebih dahulu.");
+                await (ShowMessage?.Invoke("Pilih folder sumber yang valid terlebih dahulu.") ?? Task.CompletedTask);
                 return false;
             }
 
             if (Destinations.Count == 0)
             {
-                ShowMessage?.Invoke("Tambahkan minimal satu folder tujuan.");
+                await (ShowMessage?.Invoke("Tambahkan minimal satu folder tujuan.") ?? Task.CompletedTask);
                 return false;
             }
 
@@ -165,7 +165,7 @@ namespace PicSorter.Core.ViewModels
         [RelayCommand]
         private async Task StartSortingAsync()
         {
-            if (!ValidateSourceAndDest()) return;
+            if (!await ValidateSourceAndDest()) return;
 
             var allFiles = new List<ScannedFile>();
             await foreach (var file in _scanService.ScanFolderAsync(SourceFolder, IncludeSubfolders, SelectedSortCriteria))
@@ -175,7 +175,7 @@ namespace PicSorter.Core.ViewModels
 
             if (allFiles.Count == 0)
             {
-                ShowMessage?.Invoke("Tidak ada file gambar/video yang ditemukan di folder sumber.");
+                await (ShowMessage?.Invoke("Tidak ada file gambar/video yang ditemukan di folder sumber.") ?? Task.CompletedTask);
                 return;
             }
 
@@ -240,14 +240,14 @@ namespace PicSorter.Core.ViewModels
         [RelayCommand]
         private async Task ContinueFromLogAsync()
         {
-            if (!ValidateSourceAndDest()) return;
+            if (!await ValidateSourceAndDest()) return;
 
             string stateFile = Path.Combine(SourceFolder, "sorting_state.json");
             var state = await _stateService.LoadStateAsync(stateFile);
 
             if (state == null || state.Items == null || state.Items.Count == 0)
             {
-                ShowMessage?.Invoke("File state (sorting_state.json) tidak ditemukan atau kosong.");
+                await (ShowMessage?.Invoke("File state (sorting_state.json) tidak ditemukan atau kosong.") ?? Task.CompletedTask);
                 return;
             }
 
@@ -495,13 +495,13 @@ namespace PicSorter.Core.ViewModels
         {
             if (_state == null || _items.Count == 0)
             {
-                ShowMessage?.Invoke("Tidak ada state aktif. Mulai sorting terlebih dahulu.");
+                await (ShowMessage?.Invoke("Tidak ada state aktif. Mulai sorting terlebih dahulu.") ?? Task.CompletedTask);
                 return;
             }
 
             if (string.IsNullOrEmpty(SourceFolder) || !Directory.Exists(SourceFolder))
             {
-                ShowMessage?.Invoke("Folder sumber pada state tidak ditemukan.");
+                await (ShowMessage?.Invoke("Folder sumber pada state tidak ditemukan.") ?? Task.CompletedTask);
                 return;
             }
 
@@ -522,14 +522,14 @@ namespace PicSorter.Core.ViewModels
                 }
                 catch (Exception ex)
                 {
-                    ShowMessage?.Invoke($"Gagal memproses file:\n{item.SourcePath}\n\n{ex.Message}");
+                    await (ShowMessage?.Invoke($"Gagal memproses file:\n{item.SourcePath}\n\n{ex.Message}") ?? Task.CompletedTask);
                 }
             }
 
             string stateFile = Path.Combine(SourceFolder, "sorting_state.json");
             await _stateService.SaveStateAsync(stateFile, _state);
 
-            ShowMessage?.Invoke($"Save selesai. {appliedCount} file diproses ({_state.Mode}).");
+            await (ShowMessage?.Invoke($"Save selesai. {appliedCount} file diproses ({_state.Mode}).") ?? Task.CompletedTask);
         }
 
         private void UpdateStatistics()
