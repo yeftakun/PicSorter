@@ -29,6 +29,8 @@ namespace PicSorter.Core.ViewModels
             Modes = new ObservableCollection<string> { "Copy", "Move" };
             SelectedMode = Modes[0];
             Destinations = new ObservableCollection<DestinationFolderInfo>();
+            SortCriteriaOptions = new ObservableCollection<SortCriteria>(Enum.GetValues<SortCriteria>());
+            SelectedSortCriteria = SortCriteria.Name;
         }
 
         [ObservableProperty]
@@ -38,6 +40,14 @@ namespace PicSorter.Core.ViewModels
 
         [ObservableProperty]
         private string _selectedMode;
+
+        [ObservableProperty]
+        private bool _includeSubfolders;
+
+        public ObservableCollection<SortCriteria> SortCriteriaOptions { get; }
+
+        [ObservableProperty]
+        private SortCriteria _selectedSortCriteria;
 
         public ObservableCollection<DestinationFolderInfo> Destinations { get; }
 
@@ -146,8 +156,8 @@ namespace PicSorter.Core.ViewModels
         {
             if (!ValidateSourceAndDest()) return;
 
-            var allFiles = new List<string>();
-            await foreach (var file in _scanService.ScanFolderAsync(SourceFolder, false))
+            var allFiles = new List<ScannedFile>();
+            await foreach (var file in _scanService.ScanFolderAsync(SourceFolder, IncludeSubfolders, SelectedSortCriteria))
             {
                 allFiles.Add(file);
             }
@@ -163,10 +173,11 @@ namespace PicSorter.Core.ViewModels
                 SourceFolder = SourceFolder,
                 Mode = SelectedMode,
                 Destinations = Destinations.ToList(),
-                Items = allFiles.Select(path => new SortItemState
+                Items = allFiles.Select(file => new SortItemState
                 {
-                    SourcePath = path,
-                    IsVideo = _scanService.IsVideo(path),
+                    SourcePath = file.FullPath,
+                    RelativeSourcePath = file.RelativePath,
+                    IsVideo = _scanService.IsVideo(file.FullPath),
                     Sorted = false,
                     DestFolderPath = null,
                     LastAction = null,

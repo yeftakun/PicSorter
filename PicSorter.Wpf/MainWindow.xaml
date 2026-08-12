@@ -25,11 +25,16 @@
                 
                 <StackPanel Orientation="Horizontal" Margin="0,5">
                     <TextBlock Text="Mode:" VerticalAlignment="Center" Width="100"/>
-                    <ComboBox ItemsSource="{Binding Modes}" SelectedItem="{Binding SelectedMode}" Width="150" Margin="0,0,20,0"/>
+                    <ComboBox ItemsSource="{Binding Modes}" SelectedItem="{Binding SelectedMode}" Width="80" Margin="0,0,10,0"/>
+                    
+                    <TextBlock Text="Sort by:" VerticalAlignment="Center" Margin="0,0,5,0"/>
+                    <ComboBox ItemsSource="{Binding SortCriteriaOptions}" SelectedItem="{Binding SelectedSortCriteria}" Width="110" Margin="0,0,15,0"/>
+                    
+                    <CheckBox Content="Include subfolders" IsChecked="{Binding IncludeSubfolders}" VerticalAlignment="Center" Margin="0,0,15,0"/>
                     
                     <Button Content="Start Sorting" Command="{Binding StartSortingCommand}" Width="100" Margin="0,0,10,0"/>
-                    <Button Content="Continue" Command="{Binding ContinueFromLogCommand}" Width="100" Margin="0,0,10,0"/>
-                    <Button Content="Save / Apply" Command="{Binding SavePlanCommand}" Width="100"/>
+                    <Button Content="Continue" Command="{Binding ContinueFromLogCommand}" Width="80" Margin="0,0,10,0"/>
+                    <Button Content="Save / Apply" Command="{Binding SavePlanCommand}" Width="90"/>
                 </StackPanel>
             </StackPanel>
         </Border>

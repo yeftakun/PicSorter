@@ -3,6 +3,7 @@ namespace PicSorter.Core.Models
     public class SortItemState
     {
         public string SourcePath { get; set; } = "";
+        public string RelativeSourcePath { get; set; } = "";
         public bool IsVideo { get; set; }
         public bool Sorted { get; set; } = false;
         public string? DestFolderPath { get; set; }
