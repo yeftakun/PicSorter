@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:PicSorter.Wpf"
+        xmlns:views="clr-namespace:PicSorter.Wpf.Views"
         mc:Ignorable="d"
         Title="PicSorter WPF" Height="700" Width="1000"
         KeyDown="Window_KeyDown">
@@ -38,7 +39,11 @@
                     
                     <Button Content="Start Sorting" Command="{Binding StartSortingCommand}" Width="100" Margin="0,0,10,0"/>
                     <Button Content="Continue" Command="{Binding ContinueFromLogCommand}" Width="80" Margin="0,0,10,0"/>
-                    <Button Content="Save / Apply" Command="{Binding SavePlanCommand}" Width="90"/>
+                    <Button Content="Save / Apply" Command="{Binding SavePlanCommand}" Width="90" Margin="0,0,10,0"/>
+                    
+                    <TextBlock Text="Dest:" VerticalAlignment="Center" Margin="10,0,5,0"/>
+                    <Button Content="Add" Command="{Binding AddDestinationCommand}" Width="50" Margin="0,0,5,0"/>
+                    <Button Content="Clear" Command="{Binding ClearDestinationsCommand}" Width="50"/>
                 </StackPanel>
             </StackPanel>
         </Border>
@@ -52,31 +57,13 @@
 
             <!-- PREVIEW -->
             <Border Grid.Column="0" BorderBrush="LightGray" BorderThickness="1" Margin="10" ClipToBounds="True">
-                <Grid x:Name="gridPreview" Background="Transparent" 
-                      MouseWheel="GridPreview_MouseWheel" 
-                      MouseLeftButtonDown="GridPreview_MouseLeftButtonDown"
-                      MouseLeftButtonUp="GridPreview_MouseLeftButtonUp"
-                      MouseMove="GridPreview_MouseMove">
-                    <TextBlock Text="No Image" HorizontalAlignment="Center" VerticalAlignment="Center" Foreground="Gray"/>
-                    <Image x:Name="imgPreview" Stretch="Uniform" RenderTransformOrigin="0,0">
-                        <Image.RenderTransform>
-                            <TransformGroup>
-                                <ScaleTransform x:Name="imgScale"/>
-                                <TranslateTransform x:Name="imgTranslate"/>
-                            </TransformGroup>
-                        </Image.RenderTransform>
-                    </Image>
-                </Grid>
+                <views:SinglePreviewView />
             </Border>
 
             <!-- PANEL INFO (Kanan) -->
             <Border Grid.Column="1" BorderBrush="LightGray" BorderThickness="1,0,0,0" Padding="10">
                 <StackPanel>
                     <TextBlock Text="Destinations" FontWeight="Bold" Margin="0,0,0,10"/>
-                    <StackPanel Orientation="Horizontal" Margin="0,0,0,10">
-                        <Button Content="Add Dest" Command="{Binding AddDestinationCommand}" Width="80" Margin="0,0,10,0"/>
-                        <Button Content="Clear" Command="{Binding ClearDestinationsCommand}" Width="80"/>
-                    </StackPanel>
                     
                     <ListView ItemsSource="{Binding Destinations}" Height="200" Margin="0,0,0,20">
                         <ListView.View>
@@ -93,9 +80,6 @@
                         <TextBlock Text="{Binding CurrentExif.CameraModel, StringFormat='Camera: \{0\}', TargetNullValue='Camera: -', FallbackValue='Camera: -'}" Foreground="DarkGray"/>
                         <TextBlock Text="{Binding CurrentExif.Resolution, StringFormat='Resolution: \{0\}', TargetNullValue='Resolution: -', FallbackValue='Resolution: -'}" Foreground="DarkGray"/>
                     </StackPanel>
-
-                    <TextBlock Text="Shortcuts Info" FontWeight="Bold" Margin="0,0,0,5"/>
-                    <TextBlock Text="1-0: Assign to Destination&#x0a;S: Skip&#x0a;Backspace: Undo&#x0a;Left/Right: Browse" Foreground="DarkGray" Margin="0,0,0,20"/>
                     
                     <TextBlock Text="Session Statistics" FontWeight="Bold" Margin="0,0,0,5"/>
                     <ItemsControl ItemsSource="{Binding SessionStatistics}" Margin="0,0,0,20">
@@ -112,7 +96,10 @@
         <!-- STATUS BAR -->
         <StatusBar Grid.Row="2" Padding="5">
             <StatusBarItem>
-                <TextBlock Text="{Binding StatusText}" Width="250"/>
+                <ProgressBar Value="{Binding ProgressValue}" Maximum="{Binding ProgressMaximum}" Width="150" Height="15"/>
+            </StatusBarItem>
+            <StatusBarItem>
+                <TextBlock Text="{Binding ProgressText}" Margin="10,0,0,0"/>
             </StatusBarItem>
             <Separator/>
             <StatusBarItem>
@@ -125,10 +112,7 @@
             </StatusBarItem>
             <Separator/>
             <StatusBarItem>
-                <ProgressBar Value="{Binding ProgressValue}" Maximum="{Binding ProgressMaximum}" Width="150" Height="15"/>
-            </StatusBarItem>
-            <StatusBarItem>
-                <TextBlock Text="{Binding ProgressText}" Margin="10,0,0,0"/>
+                <TextBlock Text="1-0: Assign | S: Skip | Backspace: Undo | Left/Right: Browse" Foreground="DarkGray"/>
             </StatusBarItem>
         </StatusBar>
     </Grid>
