@@ -20,8 +20,14 @@ namespace PicSorter.Core.ViewModels
         private readonly ExifService _exifService;
         private readonly DuplicateDetectionService _duplicateService;
 
-        public MainViewModel()
+        private readonly AppSettings? _settings;
+        private readonly Action? _saveSettingsAction;
+
+        public MainViewModel(AppSettings? settings = null, Action? saveSettingsAction = null)
         {
+            _settings = settings;
+            _saveSettingsAction = saveSettingsAction;
+
             _scanService = new FileScanService();
             _stateService = new SortStateService();
             _operationService = new FileOperationService();
@@ -29,8 +35,18 @@ namespace PicSorter.Core.ViewModels
             _duplicateService = new DuplicateDetectionService();
 
             Modes = new ObservableCollection<string> { "Copy", "Move" };
-            SelectedMode = Modes[0];
+            SelectedMode = _settings?.LastUsedMode == "Move" ? "Move" : "Copy";
+            
             Destinations = new ObservableCollection<DestinationFolderInfo>();
+            if (_settings != null && _settings.FavoriteDestinations != null)
+            {
+                foreach (var dest in _settings.FavoriteDestinations)
+                {
+                    Destinations.Add(new DestinationFolderInfo { Shortcut = dest.Shortcut, FolderPath = dest.FolderPath });
+                }
+            }
+            BuildDestinationMap();
+
             SortCriteriaOptions = new ObservableCollection<SortCriteria>(Enum.GetValues<SortCriteria>());
             SelectedSortCriteria = SortCriteria.Name;
         }
@@ -106,6 +122,28 @@ namespace PicSorter.Core.ViewModels
             }
         }
 
+        partial void OnSelectedModeChanged(string value)
+        {
+            if (_settings != null)
+            {
+                _settings.LastUsedMode = value;
+                _saveSettingsAction?.Invoke();
+            }
+        }
+
+        private void SyncSettingsDestinations()
+        {
+            if (_settings != null)
+            {
+                _settings.FavoriteDestinations.Clear();
+                foreach (var dest in Destinations)
+                {
+                    _settings.FavoriteDestinations.Add(new DestinationFolderInfo { Shortcut = dest.Shortcut, FolderPath = dest.FolderPath });
+                }
+                _saveSettingsAction?.Invoke();
+            }
+        }
+
         [RelayCommand]
         private async Task AddDestination()
         {
@@ -123,6 +161,8 @@ namespace PicSorter.Core.ViewModels
                     string shortcut = (Destinations.Count + 1).ToString();
                     if (shortcut == "10") shortcut = "0";
                     Destinations.Add(new DestinationFolderInfo { Shortcut = shortcut, FolderPath = folder });
+                    BuildDestinationMap();
+                    SyncSettingsDestinations();
                 }
             }
         }
@@ -131,6 +171,8 @@ namespace PicSorter.Core.ViewModels
         private void ClearDestinations()
         {
             Destinations.Clear();
+            BuildDestinationMap();
+            SyncSettingsDestinations();
         }
 
         private async Task<bool> ValidateSourceAndDest()

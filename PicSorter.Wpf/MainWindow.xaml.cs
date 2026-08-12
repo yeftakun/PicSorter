@@ -4,6 +4,8 @@ using System.Threading;
 using System.Windows;
 using System.Windows.Input;
 using Microsoft.Win32;
+using PicSorter.Core.Models;
+using PicSorter.Core.Services;
 using PicSorter.Core.ViewModels;
 using Wpf.Ui.Controls;
 
@@ -13,11 +15,25 @@ namespace PicSorter.Wpf
     {
         private readonly MainViewModel _viewModel;
 
-        public MainWindow()
+        private readonly AppSettingsService _settingsService;
+        private readonly AppSettings _settings;
+
+        public MainWindow(AppSettings settings, AppSettingsService settingsService)
         {
+            _settings = settings;
+            _settingsService = settingsService;
+
             InitializeComponent();
-            _viewModel = new MainViewModel();
+            _viewModel = new MainViewModel(_settings, SaveSettings);
             DataContext = _viewModel;
+
+            // Apply window bounds
+            if (!double.IsNaN(_settings.WindowWidth) && _settings.WindowWidth > 0) Width = _settings.WindowWidth;
+            if (!double.IsNaN(_settings.WindowHeight) && _settings.WindowHeight > 0) Height = _settings.WindowHeight;
+            if (!double.IsNaN(_settings.WindowTop)) Top = _settings.WindowTop;
+            if (!double.IsNaN(_settings.WindowLeft)) Left = _settings.WindowLeft;
+
+            this.Closing += MainWindow_Closing;
 
             // Use WPF-UI ContentDialog instead of MessageBox
             _viewModel.ShowMessage = async msg =>
@@ -91,6 +107,24 @@ namespace PicSorter.Wpf
                 await _viewModel.TryGetCommandForKey(keyStr);
                 e.Handled = true;
             }
+        }
+
+        private void SaveSettings()
+        {
+            _settings.WindowWidth = ActualWidth;
+            _settings.WindowHeight = ActualHeight;
+            _settings.WindowTop = Top;
+            _settings.WindowLeft = Left;
+            
+            // Note: Mode and Destinations are updated by MainViewModel before it calls SaveSettings
+            
+            // Fire-and-forget save
+            _ = _settingsService.SaveSettingsAsync(_settings);
+        }
+
+        private void MainWindow_Closing(object? sender, CancelEventArgs e)
+        {
+            SaveSettings();
         }
     }
 }

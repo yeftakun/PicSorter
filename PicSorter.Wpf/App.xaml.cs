@@ -1,15 +1,26 @@
 using System.Windows;
-using Wpf.Ui;
+using PicSorter.Core.Services;
 using Wpf.Ui.Appearance;
 
 namespace PicSorter.Wpf;
 
 public partial class App : Application
 {
-    protected override void OnStartup(StartupEventArgs e)
+    protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
-        // Follow Windows system theme (Light/Dark/Auto)
-        ApplicationThemeManager.ApplySystemTheme();
+
+        var settingsService = new AppSettingsService();
+        var settings = await settingsService.LoadSettingsAsync();
+
+        if (settings.ThemePreference == "Light")
+            ApplicationThemeManager.Apply(ApplicationTheme.Light);
+        else if (settings.ThemePreference == "Dark")
+            ApplicationThemeManager.Apply(ApplicationTheme.Dark);
+        else
+            ApplicationThemeManager.ApplySystemTheme();
+
+        var mainWindow = new MainWindow(settings, settingsService);
+        mainWindow.Show();
     }
 }
