@@ -8,6 +8,7 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageReference Include="MetadataExtractor" Version="2.9.3" />
   </ItemGroup>
 
 </Project>

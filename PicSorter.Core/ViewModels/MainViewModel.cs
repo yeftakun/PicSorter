@@ -17,12 +17,14 @@ namespace PicSorter.Core.ViewModels
         private readonly FileScanService _scanService;
         private readonly SortStateService _stateService;
         private readonly FileOperationService _operationService;
+        private readonly ExifService _exifService;
 
         public MainViewModel()
         {
             _scanService = new FileScanService();
             _stateService = new SortStateService();
             _operationService = new FileOperationService();
+            _exifService = new ExifService();
 
             Modes = new ObservableCollection<string> { "Copy", "Move" };
             SelectedMode = Modes[0];
@@ -56,6 +58,9 @@ namespace PicSorter.Core.ViewModels
 
         [ObservableProperty]
         private byte[]? _currentImageBytes;
+
+        [ObservableProperty]
+        private ExifInfo? _currentExif;
 
         private SortState? _state;
         private List<SortItemState> _items = new();
@@ -271,15 +276,20 @@ namespace PicSorter.Core.ViewModels
                     await fs.CopyToAsync(ms);
                     CurrentImageBytes = ms.ToArray();
                     StatusText = "Status: Menampilkan gambar";
+
+                    // Read EXIF in background
+                    CurrentExif = await Task.Run(() => _exifService.ReadExifInfo(item.SourcePath));
                 }
                 catch (Exception ex)
                 {
                     StatusText = "Status: Gagal memuat gambar: " + ex.Message;
+                    CurrentExif = null;
                 }
             }
             else
             {
                 StatusText = "Status: Video file (preview belum tersedia).";
+                CurrentExif = null;
             }
         }
 

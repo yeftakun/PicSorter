@@ -67,6 +67,13 @@
                         </ListView.View>
                     </ListView>
 
+                    <TextBlock Text="EXIF Metadata" FontWeight="Bold" Margin="0,0,0,5"/>
+                    <StackPanel Margin="0,0,0,20">
+                        <TextBlock Text="{Binding CurrentExif.DateTaken, StringFormat='Date: \{0\}', TargetNullValue='Date: -', FallbackValue='Date: -'}" Foreground="DarkGray"/>
+                        <TextBlock Text="{Binding CurrentExif.CameraModel, StringFormat='Camera: \{0\}', TargetNullValue='Camera: -', FallbackValue='Camera: -'}" Foreground="DarkGray"/>
+                        <TextBlock Text="{Binding CurrentExif.Resolution, StringFormat='Resolution: \{0\}', TargetNullValue='Resolution: -', FallbackValue='Resolution: -'}" Foreground="DarkGray"/>
+                    </StackPanel>
+
                     <TextBlock Text="Shortcuts Info" FontWeight="Bold" Margin="0,0,0,5"/>
                     <TextBlock Text="1-0: Assign to Destination&#x0a;S: Skip&#x0a;Backspace: Undo" Foreground="DarkGray" Margin="0,0,0,20"/>
                 </StackPanel>
