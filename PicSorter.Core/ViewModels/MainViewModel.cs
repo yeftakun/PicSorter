@@ -520,6 +520,22 @@ namespace PicSorter.Core.ViewModels
                     item.Committed = true;
                     appliedCount++;
                 }
+                catch (PicSorter.Core.Exceptions.FileLockedException)
+                {
+                    await (ShowMessage?.Invoke(
+                        $"File sedang digunakan aplikasi lain:\n{System.IO.Path.GetFileName(item.SourcePath)}\n\nTutup aplikasi yang membuka file tersebut, lalu coba Save lagi.") ?? Task.CompletedTask);
+                }
+                catch (PicSorter.Core.Exceptions.InsufficientSpaceException ex)
+                {
+                    await (ShowMessage?.Invoke(
+                        $"Ruang disk tidak cukup di drive {ex.DestinationDrive}\n\nBebaskan ruang disk lalu coba lagi.") ?? Task.CompletedTask);
+                    break; // no point continuing if the disk is full
+                }
+                catch (PicSorter.Core.Exceptions.FilePermissionDeniedException)
+                {
+                    await (ShowMessage?.Invoke(
+                        $"Akses ditolak untuk file:\n{System.IO.Path.GetFileName(item.SourcePath)}\n\nCoba jalankan PicSorter sebagai Administrator, atau periksa izin folder tujuan.") ?? Task.CompletedTask);
+                }
                 catch (Exception ex)
                 {
                     await (ShowMessage?.Invoke($"Gagal memproses file:\n{item.SourcePath}\n\n{ex.Message}") ?? Task.CompletedTask);

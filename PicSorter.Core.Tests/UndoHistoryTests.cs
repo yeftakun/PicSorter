@@ -44,7 +44,7 @@ namespace PicSorter.Core.Tests
             Directory.CreateDirectory(destFolder);
 
             var vm = new MainViewModel();
-            vm.ShowMessage = msg => { }; // ignore messages
+            vm.ShowMessage = msg => Task.CompletedTask; // ignore messages
 
             vm.SourceFolder = _tempFolder;
             vm.Destinations.Add(new DestinationFolderInfo { Shortcut = "1", FolderPath = destFolder });
